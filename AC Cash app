@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash App Clone</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Cash App Clone</h2>
+        <div id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <button onclick="login()">Login</button>
+            </div>
+            <p>Don't have an account? <a href="#" onclick="showRegisterForm()">Register</a></p>
+        </div>
+        <div id="registerForm" style="display: none;">
+            <div class="form-group">
+                <label for="regUsername">Username</label>
+                <input type="text" id="regUsername" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password</label>
+                <input type="password" id="regPassword" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <button onclick="register()">Register</button>
+            </div>
+            <p>Already have an account? <a href="#" onclick="showLoginForm()">Login</a></p>
+        </div>
+        <div id="dashboard" style="display: none;">
+            <h3>Welcome, <span id="dashboardUsername"></span></h3>
+            <div class="form-group">
+                <label for="receiver">Receiver Username</label>
+                <input type="text" id="receiver" placeholder="Enter receiver username">
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount</label>
+                <input type="number" id="amount" placeholder="Enter amount">
+            </div>
+            <div class="form-group">
+                <button onclick="sendMoney()">Send Money</button>
+            </div>
+            <div class="form-group">
+                <button onclick="getBalance()">Check Balance</button>
+            </div>
+            <p id="balance"></p>
+        </div>
+    </div>
+
+    <script>
+        let token = null;
+
+        function showRegisterForm() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        }
+
+        function showLoginForm() {
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        }
+
+        function showDashboard(username) {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('dashboardUsername').innerText = username;
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (response.status === 200) {
+                token = data.access_token;
+                showDashboard(username);
+            } else {
+                alert(data.message);
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (response.status === 201) {
+                alert(data.message);
+                showLoginForm();
+            } else {
+                alert(data.message);
+            }
+        }
+
+        async function sendMoney() {
+            const receiver = document.getElementById('receiver').value;
+            const amount = document.getElementById('amount').value;
+
+            const response = await fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ receiver, amount })
+            });
+
+            const data = await response.json();
+            alert(data.message);
+        }
+
+        async function getBalance() {
+            const response = await fetch('/balance', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            document.getElementById('balance').innerText = `Balance: $${data.balance}`;
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cashapp.db'
+app.config['JWT_SECRET_KEY'] = 'super-secret-key'
+
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    balance = db.Column(db.Float, default=0.0)
+
+class Transaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+    new_user = User(username=data['username'], password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({'message': 'User registered successfully'}), 201
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(username=data['username']).first()
+    if user and bcrypt.check_password_hash(user.password, data['password']):
+        access_token = create_access_token(identity=user.id)
+        return jsonify({'access_token': access_token}), 200
+    return jsonify({'message': 'Invalid credentials'}), 401
+
+@app.route('/send', methods=['POST'])
+@jwt_required()
+def send_money():
+    data = request.get_json()
+    sender_id = get_jwt_identity()
+    sender = User.query.get(sender_id)
+    receiver = User.query.filter_by(username=data['receiver']).first()
+
+    if not receiver:
+        return jsonify({'message': 'Receiver not found'}), 404
+
+    amount = data['amount']
+    if sender.balance < amount:
+        return jsonify({'message': 'Insufficient funds'}), 400
+
+    sender.balance -= amount
+    receiver.balance += amount
+
+    new_transaction = Transaction(sender_id=sender.id, receiver_id=receiver.id, amount=amount)
+    db.session.add(new_transaction)
+    db.session.commit()
+
+    return jsonify({'message': 'Money sent successfully'}), 200
+
+@app.route('/balance', methods=['GET'])
+@jwt_required()
+def get_balance():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    return jsonify({'balance': user.balance}), 200
+
+if __name__ == '__main__':
+    db.create_all()
+    app.run(debug=True)
