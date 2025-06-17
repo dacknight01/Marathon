@@ -1,36 +1,117 @@
-# This is a basic workflow to help you get started with Actions
+// NOTE: Now includes badge plans (monthly/annual) with expiration and admin logic for managing requests.
 
-name: CI
+import React, { useState, useEffect } from 'react'; import { View, Text, FlatList, Image, TouchableOpacity, Alert, ScrollView, Switch, TextInput, Modal } from 'react-native'; import { Video } from 'expo-av'; import { Card } from '@/components/ui/card';
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+const mockVideos = [ { id: '1', title: 'Funny Skit', thumbnail: 'https://via.placeholder.com/300', duration: 5, creator: 'userA', lowResUrl: 'video_low_1.mp4', mediumResUrl: 'video_med_1.mp4', highResUrl: 'video_high_1.mp4' }, { id: '2', title: 'Dance Clip', thumbnail: 'https://via.placeholder.com/300', duration: 3, creator: 'userB', lowResUrl: 'video_low_2.mp4', mediumResUrl: 'video_med_2.mp4', highResUrl: 'video_high_2.mp4' }, ];
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+const user = { id: 'user123', points: 200, wallet: 0, followers: 1200, isVerified: false, badgeExpiry: null, };
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+const dataPerMinute = { low: 1.5, medium: 3, high: 7, };
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+const getAIResponse = (question) => { if (question.toLowerCase().includes('copyright')) { return 'To avoid copyright issues, always upload content you created or have permission to use.'; } else if (question.toLowerCase().includes('rules')) { return 'Rules: 1) No hate speech. 2) No copyrighted material. 3) Be respectful. 4) Only upload original content.'; } else if (question.toLowerCase().includes('create')) { return 'To create content: Use your camera or editing tools. Keep it original. Use royalty-free music if needed.'; } else if (question.toLowerCase().includes('verify')) { return 'To request a gold badge, you need 1000+ followers and enough points for monthly or annual plan.'; } else { return 'Ask about rules, copyright, verification, or content creation.'; } };
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+export default function App() { const [points, setPoints] = useState(user.points); const [dataSaver, setDataSaver] = useState(true); const [videoQuality, setVideoQuality] = useState('low'); const [aiModalVisible, setAiModalVisible] = useState(false); const [userQuestion, setUserQuestion] = useState(''); const [aiResponse, setAiResponse] = useState(''); const [isVerified, setIsVerified] = useState(user.isVerified); const [badgeExpiry, setBadgeExpiry] = useState(user.badgeExpiry); const [planModal, setPlanModal] = useState(false);
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+useEffect(() => { if (badgeExpiry) { const now = new Date(); const expiry = new Date(badgeExpiry); if (expiry < now) { setIsVerified(false); setBadgeExpiry(null); Alert.alert('Verification Expired', 'Your gold badge has expired. Renew to stay verified.'); } } }, [badgeExpiry]);
+
+const handleWatch = (video) => { if (points < video.duration) { Alert.alert('Not enough points', 'Please purchase more points.'); return; } const creatorRevenue = video.duration * 0.6; const companyRevenue = video.duration * 0.4; setPoints(points - video.duration); Alert.alert('Access Granted', You watched '${video.title}'.); };
+
+const askAI = () => { const response = getAIResponse(userQuestion); setAiResponse(response); };
+
+const requestVerificationPlan = (plan) => { const fee = plan === 'monthly' ? 50 : 500; if (user.followers < 1000) { Alert.alert('Not Eligible', 'You need at least 1000 followers.'); return; } if (points < fee) { Alert.alert('Insufficient Points', You need ${fee} points.); return; }
+
+const expiry = new Date();
+if (plan === 'monthly') expiry.setMonth(expiry.getMonth() + 1);
+else expiry.setFullYear(expiry.getFullYear() + 1);
+
+setPoints(points - fee);
+setIsVerified(true);
+setBadgeExpiry(expiry.toISOString());
+setPlanModal(false);
+Alert.alert('Verified', `Gold badge active until ${expiry.toDateString()}`);
+
+};
+
+return ( <ScrollView style={{ padding: 20, backgroundColor: '#fff' }}> <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10 }}>Viral Videos</Text>
+
+<View style={{ marginBottom: 20 }}>
+    <Text>Data Saver Mode</Text>
+    <Switch value={dataSaver} onValueChange={setDataSaver} />
+  </View>
+
+  <View style={{ marginBottom: 20, flexDirection: 'row', alignItems: 'center' }}>
+    <Text style={{ fontSize: 18 }}>Welcome, {user.id}</Text>
+    {isVerified && <Text style={{ color: 'gold', fontWeight: 'bold', marginLeft: 10 }}>● Gold Verified</Text>}
+  </View>
+
+  {!isVerified && (
+    <TouchableOpacity onPress={() => setPlanModal(true)} style={{ backgroundColor: '#FFD700', padding: 10, borderRadius: 5, marginBottom: 20 }}>
+      <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>Request Verification Badge</Text>
+    </TouchableOpacity>
+  )}
+
+  <Modal visible={planModal} animationType="slide">
+    <View style={{ flex: 1, padding: 20 }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Select Badge Plan</Text>
+      <TouchableOpacity onPress={() => requestVerificationPlan('monthly')} style={{ backgroundColor: '#FFD700', padding: 15, borderRadius: 8, marginTop: 20 }}>
+        <Text style={{ textAlign: 'center' }}>Monthly - 50 points</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => requestVerificationPlan('annual')} style={{ backgroundColor: '#DAA520', padding: 15, borderRadius: 8, marginTop: 10 }}>
+        <Text style={{ textAlign: 'center' }}>Annual - 500 points</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => setPlanModal(false)} style={{ marginTop: 30, padding: 10, backgroundColor: '#ccc', borderRadius: 5 }}>
+        <Text style={{ textAlign: 'center' }}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </Modal>
+
+  {mockVideos.map((video) => (
+    <Card key={video.id} className="mb-4 p-4">
+      <Image source={{ uri: video.thumbnail }} style={{ height: 200, borderRadius: 8 }} />
+      <Text style={{ fontSize: 18, marginTop: 8 }}>{video.title}</Text>
+      <Text>{video.duration} min - Cost: {video.duration} pts</Text>
+      <TouchableOpacity onPress={() => handleWatch(video)} style={{ backgroundColor: '#6200ee', padding: 10, marginTop: 8, borderRadius: 5 }}>
+        <Text style={{ color: '#fff', textAlign: 'center' }}>Watch Now</Text>
+      </TouchableOpacity>
+    </Card>
+  ))}
+
+  <Text style={{ fontSize: 24, fontWeight: 'bold', marginTop: 20 }}>Shorts</Text>
+  <FlatList
+    horizontal
+    data={mockVideos}
+    keyExtractor={(item) => item.id}
+    renderItem={({ item }) => (
+      <TouchableOpacity onPress={() => handleWatch(item)} style={{ marginRight: 10 }}>
+        <Image source={{ uri: item.thumbnail }} style={{ width: 120, height: 200, borderRadius: 10 }} />
+      </TouchableOpacity>
+    )}
+  />
+
+  <TouchableOpacity onPress={() => setAiModalVisible(true)} style={{ backgroundColor: '#007AFF', padding: 12, marginTop: 30, borderRadius: 8 }}>
+    <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Ask AI Assistant</Text>
+  </TouchableOpacity>
+
+  <Modal visible={aiModalVisible} animationType="slide">
+    <View style={{ flex: 1, padding: 20, backgroundColor: '#fff' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold' }}>AI Assistant</Text>
+      <TextInput
+        placeholder="Ask me anything..."
+        value={userQuestion}
+        onChangeText={setUserQuestion}
+        style={{ borderColor: '#ccc', borderWidth: 1, marginVertical: 10, padding: 10, borderRadius: 5 }}
+      />
+      <TouchableOpacity onPress={askAI} style={{ backgroundColor: '#6200ee', padding: 10, borderRadius: 5 }}>
+        <Text style={{ color: '#fff', textAlign: 'center' }}>Get Answer</Text>
+      </TouchableOpacity>
+      <Text style={{ marginTop: 20, fontSize: 16 }}>{aiResponse}</Text>
+
+      <TouchableOpacity onPress={() => setAiModalVisible(false)} style={{ marginTop: 30, padding: 10, backgroundColor: '#ccc', borderRadius: 5 }}>
+        <Text style={{ textAlign: 'center' }}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  </Modal>
+</ScrollView>
+
+); }
+
